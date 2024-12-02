@@ -1,14 +1,16 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pip install -r requirements.txt"
+buildCommand = "cd backend && pip install -r requirements.txt"
 
 [deploy]
-startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+startCommand = "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 restartPolicyType = "on-failure"
-numReplicas = 2
+numReplicas = 1
 
 [deploy.env]
+PYTHON_VERSION = "3.11"
+PYTHONPATH = "/backend"
 LOG_LEVEL = "info"
 PYTHONUNBUFFERED = "1"
 
@@ -19,4 +21,3 @@ auto_start_machines = true
 
 [metrics]
 port = 8000
-path = "/metrics"
