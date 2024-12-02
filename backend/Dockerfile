@@ -18,20 +18,11 @@ COPY . .
 # Set environment variables
 ENV PORT=8000
 ENV HOST=0.0.0.0
-ENV NODE_ENV=production
-ENV LOG_LEVEL=info
 ENV PYTHONUNBUFFERED=1
-
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:${PORT}/health || exit 1
+ENV PYTHONPATH=/app
 
 # Expose port
-EXPOSE ${PORT}
+EXPOSE 8000
 
-# Create non-root user
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
-
-# Start the application
-CMD ["sh", "-c", "uvicorn main:app --host ${HOST} --port ${PORT} --log-level ${LOG_LEVEL}"]
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
