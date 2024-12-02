@@ -10,14 +10,17 @@ def init_monitoring(app: FastAPI):
     sentry_dsn = os.getenv("SENTRY_DSN")
     if sentry_dsn and sentry_dsn.strip():
         try:
+            print(f"Attempting to initialize Sentry with DSN: {sentry_dsn[:20]}...")  # Only print first 20 chars for security
             sentry_sdk.init(
-                dsn=sentry_dsn,
+                dsn=sentry_dsn.strip(),  # Ensure no whitespace
                 integrations=[FastApiIntegration()],
                 traces_sample_rate=1.0,
                 environment=os.getenv("ENVIRONMENT", "production"),
             )
+            print("Sentry initialization successful")
         except Exception as e:
-            print(f"Failed to initialize Sentry: {e}")
+            print(f"Failed to initialize Sentry. Error: {str(e)}")
+            print("Application will continue without Sentry monitoring")
 
     # Initialize Prometheus metrics
     Instrumentator().instrument(app).expose(app)
@@ -27,8 +30,10 @@ def init_monitoring(app: FastAPI):
     if new_relic_key and new_relic_key.strip():
         try:
             newrelic.agent.initialize()
+            print("New Relic initialization successful")
         except Exception as e:
             print(f"Failed to initialize New Relic: {e}")
+            print("Application will continue without New Relic monitoring")
 
     @app.middleware("http")
     async def add_monitoring_headers(request, call_next):
