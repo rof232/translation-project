@@ -105,7 +105,7 @@ npm run dev
 
 إذا واجهت أي مشاكل أو لديك أسئلة:
 - افتح issue على GitHub
-- تواصل معنا عبر [Twitter](https://twitter.com/yourusername)
+- تواصل معنا عبر [Twitter](https://x.com/may24_44)
 - راسلنا على البريد الإلكتروني: support@example.com
 
 ## شكر خاص 
