@@ -38,6 +38,11 @@ async def health_check():
 async def metrics():
     return {"status": "ok"}
 
+# Test endpoint
+@app.get("/test")
+async def test():
+    return {"status": "ok", "message": "Test endpoint is working"}
+
 class TranslationRequest(BaseModel):
     text: str = Field(..., description="Text to translate")
     source_lang: Optional[str] = Field(None, description="Source language code (ISO 639-1)")
