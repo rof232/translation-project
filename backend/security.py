@@ -26,8 +26,26 @@ class RateLimiter:
         self.requests[client_id].append(now)
         return True
 
+def parse_time_window(time_str: str) -> int:
+    """Convert time string (e.g., '15m', '1h') to seconds"""
+    time_str = time_str.strip().lower()
+    if time_str.isdigit():
+        return int(time_str)
+    
+    value = int(time_str[:-1])
+    unit = time_str[-1]
+    
+    if unit == 'm':
+        return value * 60
+    elif unit == 'h':
+        return value * 3600
+    elif unit == 'd':
+        return value * 86400
+    else:
+        return int(time_str)  # fallback to direct conversion
+
 rate_limiter = RateLimiter(
-    window=int(os.getenv("RATE_LIMIT_WINDOW", "900")),
+    window=parse_time_window(os.getenv("RATE_LIMIT_WINDOW", "900")),
     max_requests=int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "100"))
 )
 
