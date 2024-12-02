@@ -33,11 +33,6 @@ app.add_middleware(
 async def health_check():
     return {"status": "healthy"}
 
-# Metrics endpoint
-@app.get("/metrics")
-async def metrics():
-    return {"status": "ok"}
-
 # Test endpoint
 @app.get("/test")
 async def test():
