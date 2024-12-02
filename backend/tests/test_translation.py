@@ -75,3 +75,71 @@ def test_rate_limiting():
     response = client.get("/health")
     assert response.status_code == 429
     assert "error" in response.json()
+
+def test_context_aware_translation():
+    request = {
+        "text": "I love apple products",
+        "target_lang": "ar",
+        "context": "technology"
+    }
+    response = client.post("/translate", json=request)
+    assert response.status_code == 200
+    data = response.json()
+    assert "translated_text" in data
+    assert "context_applied" in data
+
+def test_multiple_terms():
+    request = {
+        "text": "The cat and dog are playing in the garden",
+        "target_lang": "ar",
+        "terms": [
+            {"original": "cat", "translation": "قطة", "category": "animals"},
+            {"original": "dog", "translation": "كلب", "category": "animals"},
+            {"original": "garden", "translation": "حديقة", "category": "places"}
+        ]
+    }
+    response = client.post("/translate", json=request)
+    assert response.status_code == 200
+    data = response.json()
+    assert "translated_text" in data
+    assert "terms_applied" in data
+
+def test_concurrent_requests():
+    import concurrent.futures
+    
+    def make_request():
+        return client.post("/translate", json={"text": "Hello", "target_lang": "ar"})
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(make_request) for _ in range(5)]
+        responses = [f.result() for f in futures]
+    
+    assert all(r.status_code == 200 for r in responses)
+
+def test_ai_provider_selection():
+    providers = ["google", "openai", "anthropic"]
+    for provider in providers:
+        request = {
+            "text": "Hello world",
+            "target_lang": "ar",
+            "ai_provider": provider
+        }
+        response = client.post("/translate", json=request)
+        assert response.status_code in [200, 400]  # 400 if provider not configured
+
+def test_language_detection():
+    texts = {
+        "مرحبا": "ar",
+        "Hello": "en",
+        "Bonjour": "fr",
+        "こんにちは": "ja"
+    }
+    for text, expected_lang in texts.items():
+        request = {
+            "text": text,
+            "target_lang": "en"
+        }
+        response = client.post("/translate", json=request)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["detected_language"] == expected_lang

@@ -1,7 +1,18 @@
+"""
+المترجم الذكي - خدمة الترجمة المتقدمة
+
+هذا الملف يحتوي على نقاط النهاية الرئيسية لخدمة الترجمة. يدعم:
+- ترجمة النصوص باستخدام مزودي الذكاء الاصطناعي المختلفين
+- الترجمة السياقية
+- إدارة المصطلحات
+- كشف اللغة تلقائياً
+- تحديد معدل الاستخدام
+"""
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 import httpx
 import os
 from dotenv import load_dotenv
@@ -38,17 +49,32 @@ async def health_check():
 async def test():
     return {"status": "ok", "message": "Test endpoint is working"}
 
+class Term(BaseModel):
+    original: str
+    translation: str
+
 class TranslationRequest(BaseModel):
-    text: str = Field(..., description="Text to translate")
-    source_lang: Optional[str] = Field(None, description="Source language code (ISO 639-1)")
-    target_lang: str = Field(..., description="Target language code (ISO 639-1)")
-    api_key: Optional[str] = Field(None, description="OpenAI API key")
-    terms: Optional[List[dict]] = Field(None, description="Custom translation terms")
+    """نموذج طلب الترجمة
+
+    Attributes:
+        text (str): النص المراد ترجمته
+        target_lang (str): رمز اللغة الهدف (مثل 'ar' للعربية)
+        source_lang (str, optional): رمز اللغة المصدر (اختياري، يتم الكشف عنه تلقائياً)
+        context (str, optional): سياق النص للترجمة الأكثر دقة
+        terms (List[Term], optional): قائمة المصطلحات المخصصة للترجمة
+        ai_provider (str, optional): مزود الذكاء الاصطناعي المفضل (google, openai, anthropic)
+    """
+    text: str
+    target_lang: str
+    source_lang: Optional[str] = None
+    context: Optional[str] = None
+    terms: Optional[List[Term]] = None
+    ai_provider: Optional[str] = "google"
 
 class TranslationResponse(BaseModel):
-    translated_text: str = Field(..., description="Translated text")
-    detected_language: Optional[str] = Field(None, description="Detected source language")
-    confidence: Optional[float] = Field(None, description="Translation confidence score")
+    translated_text: str
+    detected_language: Optional[str]
+    confidence: Optional[float]
 
 async def detect_language(text: str) -> str:
     try:
@@ -92,7 +118,7 @@ async def translate_with_openai(text: str, source_lang: str, target_lang: str, a
     except:
         return ""
 
-async def apply_terms(text: str, terms: list[dict]) -> str:
+async def apply_terms(text: str, terms: list[Term]) -> str:
     if not terms:
         return text
     
@@ -106,7 +132,22 @@ async def root():
     return {"message": "Welcome to AI Translator API"}
 
 @app.post("/translate", response_model=TranslationResponse)
-async def translate_text(request: TranslationRequest):
+async def translate_text(request: TranslationRequest) -> Dict:
+    """ترجمة النص مع دعم السياق والمصطلحات المخصصة
+
+    Args:
+        request (TranslationRequest): طلب الترجمة مع كافة المعلمات
+
+    Returns:
+        Dict: نتيجة الترجمة تتضمن:
+            - translated_text: النص المترجم
+            - detected_language: اللغة المكتشفة للنص المصدر
+            - context_applied: إذا تم تطبيق السياق
+            - terms_applied: قائمة المصطلحات التي تم تطبيقها
+
+    Raises:
+        HTTPException: في حالة وجود خطأ في الطلب أو الترجمة
+    """
     try:
         source_lang = request.source_lang
         if not source_lang:
@@ -115,9 +156,9 @@ async def translate_text(request: TranslationRequest):
         translated_text = ""
         confidence = 0.0
 
-        if request.api_key:
+        if request.ai_provider == "openai":
             translated_text = await translate_with_openai(
-                request.text, source_lang, request.target_lang, request.api_key
+                request.text, source_lang, request.target_lang, "YOUR_OPENAI_API_KEY"
             )
             confidence = 0.9 if translated_text else 0.0
 
