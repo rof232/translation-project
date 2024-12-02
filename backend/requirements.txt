@@ -1,0 +1,16 @@
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+python-dotenv==1.0.0
+httpx>=0.23.0
+python-multipart==0.0.6
+deep-translator==1.11.4
+langdetect==1.0.9
+sentry-sdk[fastapi]==1.39.1
+prometheus-fastapi-instrumentator==6.1.0
+psycopg2-binary==2.9.9
+python-jose[cryptography]==3.3.0
+rate-limiter==3.1.0
+newrelic==9.6.0
+gunicorn==21.2.0
+uvicorn[standard]==0.27.0.post1

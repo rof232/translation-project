@@ -1,0 +1,22 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pip install -r requirements.txt"
+
+[deploy]
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+restartPolicyType = "on-failure"
+numReplicas = 2
+
+[deploy.env]
+LOG_LEVEL = "info"
+PYTHONUNBUFFERED = "1"
+
+[service]
+internal_port = 8000
+auto_stop_machines = true
+auto_start_machines = true
+
+[metrics]
+port = 8000
+path = "/metrics"
