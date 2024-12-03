@@ -20,6 +20,8 @@ from deep_translator import GoogleTranslator
 from langdetect import detect
 from monitoring import init_monitoring
 from security import init_security
+from services.translation_memory_service import TranslationMemoryService
+from models.translation_memory import TranslationMemoryEntry, TranslationContext, NovelContext
 
 load_dotenv()
 
@@ -127,6 +129,9 @@ async def apply_terms(text: str, terms: list[Term]) -> str:
             text = text.replace(term['original'], term['translation'])
     return text
 
+# إنشاء مثيل من خدمة ذاكرة الترجمة
+translation_memory_service = TranslationMemoryService()
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to AI Translator API"}
@@ -182,6 +187,34 @@ async def translate_text(request: TranslationRequest) -> Dict:
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/translation-memory/add")
+async def add_translation_memory(entry: TranslationMemoryEntry):
+    """إضافة مدخل جديد إلى ذاكرة الترجمة"""
+    await translation_memory_service.add_entry(entry)
+    return {"status": "success"}
+
+@app.post("/translation-memory/find-similar")
+async def find_similar_translations(
+    text: str,
+    context: Optional[TranslationContext] = None,
+    threshold: float = 0.8
+):
+    """البحث عن ترجمات مشابهة"""
+    similar = await translation_memory_service.find_similar_translations(text, context, threshold)
+    return {"translations": similar}
+
+@app.post("/novel-context/add")
+async def add_novel_context(novel_title: str, context: NovelContext):
+    """إضافة سياق جديد لرواية"""
+    await translation_memory_service.add_novel_context(novel_title, context)
+    return {"status": "success"}
+
+@app.get("/novel-context/characters/{novel_title}")
+async def get_novel_characters(novel_title: str):
+    """الحصول على قائمة الشخصيات في رواية معينة"""
+    characters = await translation_memory_service.get_character_translations(novel_title)
+    return {"characters": characters}
 
 if __name__ == "__main__":
     import uvicorn

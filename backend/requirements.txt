@@ -7,4 +7,4 @@ python-multipart==0.0.6
 deep-translator==1.11.4
 langdetect==1.0.9
 python-jose[cryptography]==3.3.0
-rate-limiter==3.1.0
+fastapi-limiter==0.1.5

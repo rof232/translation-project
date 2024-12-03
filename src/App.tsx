@@ -11,6 +11,8 @@ import TermsManager from './components/TermsManager';
 import { AIService, getStoredSettings, storeSettings } from './lib/ai-service';
 import { getStoredCharacters, storeCharacter, removeCharacter } from './lib/characters';
 import type { TranslationHistoryItem, DetectedCharacter, AISettings, WordPair } from './lib/types';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import TranslationMemory from './components/TranslationMemory';
 
 interface Term {
   id: string;
@@ -19,6 +21,8 @@ interface Term {
   category: string;
   notes?: string;
 }
+
+const queryClient = new QueryClient();
 
 function App() {
   const [fromLang, setFromLang] = useState('ar');
@@ -221,11 +225,11 @@ function App() {
           <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className={`appearance-none bg-[#1a1b26] text-gray-200 pl-4 pr-10 py-2.5 rounded-lg border border-[#414868] focus:ring-2 focus:ring-purple-400 focus:outline-none transition-all duration-200 cursor-pointer hover:border-purple-400 ${className}`}
+            className={`appearance-none bg-[#0f172a]/80 text-gray-200 pl-4 pr-10 py-2.5 rounded-xl border border-white/10 focus:ring-2 focus:ring-purple-400/50 focus:outline-none transition-all duration-300 cursor-pointer hover:border-white/20 ${className}`}
             style={{ fontFamily: 'Cairo, sans-serif' }}
           >
-            <option value="ar" className="bg-[#1a1b26] text-gray-200">العربية</option>
-            <option value="en" className="bg-[#1a1b26] text-gray-200">English</option>
+            <option value="ar" className="bg-[#0f172a]/80 text-gray-200">العربية</option>
+            <option value="en" className="bg-[#0f172a]/80 text-gray-200">English</option>
           </select>
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
             <ChevronDown className="w-4 h-4" />
@@ -236,161 +240,220 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1b26] text-gray-200">
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
-        <header className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 inline-block text-transparent bg-clip-text mb-2">مترجم AI</h1>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 rounded-lg hover:bg-[#24283b] transition-colors"
-            title="Settings"
-          >
-            <Settings className="w-5 h-5 text-gray-400" />
-          </button>
-        </header>
-
-        <main className="space-y-8">
-          <TermsManager
-            terms={terms}
-            onTermAdd={handleTermAdd}
-            onTermUpdate={handleTermUpdate}
-            onTermDelete={handleTermDelete}
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-[#24283b] rounded-xl p-6 shadow-lg border border-[#414868]">
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                className="w-full h-48 bg-[#1a1b26] text-gray-200 rounded-lg p-4 focus:ring-2 focus:ring-purple-400 focus:outline-none resize-none border border-[#414868] transition duration-200"
-                placeholder="أدخل النص هنا..."
-                style={{ fontFamily: 'Cairo, sans-serif' }}
-              />
-              <div className="mt-4 flex justify-between items-center">
-                <LanguageSelector
-                  value={fromLang}
-                  onChange={setFromLang}
-                  label="ترجم من"
-                  className="bg-[#1a1b26] text-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-400 focus:outline-none border border-[#414868] transition duration-200"
-                />
-                <button
-                  onClick={handleTranslate}
-                  disabled={isLoading || !inputText.trim() || !aiService}
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-8 py-2 rounded-lg transition duration-200 font-semibold"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      جاري الترجمة...
-                    </>
-                  ) : !aiService ? (
-                    'يرجى إضافة مفتاح API أولاً'
-                  ) : (
-                    'ترجم'
-                  )}
-                </button>
-              </div>
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="container mx-auto px-6 py-8 max-w-7xl">
+          {/* Header */}
+          <header className="flex justify-between items-center mb-12 bg-white/5 backdrop-blur-xl p-6 rounded-2xl border border-white/10 shadow-2xl">
+            <div>
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-pink-500 via-indigo-400 to-cyan-400 inline-block text-transparent bg-clip-text mb-2">
+                مترجم AI
+              </h1>
+              <p className="text-gray-400 text-sm">مترجم ذكي مع ذاكرة ترجمة متقدمة</p>
             </div>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300 border border-white/10 group"
+              title="Settings"
+            >
+              <Settings className="w-6 h-6 text-gray-400 group-hover:text-cyan-400 transition-colors" />
+            </button>
+          </header>
 
-            <div className="bg-[#24283b] rounded-xl p-6 shadow-lg border border-[#414868]">
-              <div className="h-48 bg-[#1a1b26] text-gray-200 rounded-lg p-4 overflow-auto border border-[#414868]">
-                <TextWithSelection
-                  text={translatedText}
-                  dir={toLang === 'ar' ? 'rtl' : 'ltr'}
-                  onWordSelect={handleWordSelect}
+          <main className="space-y-10">
+            {/* Translation Area */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Input */}
+              <div className="group bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/[0.07]">
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-gray-200 mb-2">النص المصدر</h2>
+                  <p className="text-sm text-gray-400">أدخل النص المراد ترجمته</p>
+                </div>
+                <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  className="w-full h-48 bg-slate-900/50 text-gray-200 rounded-xl p-4 focus:ring-2 focus:ring-cyan-400/50 focus:outline-none resize-none border border-white/10 transition duration-300"
+                  placeholder="أدخل النص هنا..."
                   style={{ fontFamily: 'Cairo, sans-serif' }}
                 />
+                <div className="mt-6 flex justify-between items-center">
+                  <LanguageSelector
+                    value={fromLang}
+                    onChange={setFromLang}
+                    label="من"
+                    className="bg-slate-900/50 text-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-cyan-400/50 focus:outline-none border border-white/10 transition duration-300 min-w-[120px]"
+                  />
+                  <button
+                    onClick={handleTranslate}
+                    disabled={isLoading || !inputText.trim() || !aiService}
+                    className="bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-600 hover:to-indigo-600 text-white px-8 py-3 rounded-xl transition duration-300 font-semibold disabled:opacity-50 shadow-lg"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>جاري الترجمة...</span>
+                      </div>
+                    ) : !aiService ? (
+                      'يرجى إضافة مفتاح API أولاً'
+                    ) : (
+                      'ترجم'
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="mt-4 flex justify-between items-center">
-                <LanguageSelector
-                  value={toLang}
-                  onChange={setToLang}
-                  label="إلى"
-                  className="bg-[#1a1b26] text-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-400 focus:outline-none border border-[#414868] transition duration-200"
-                />
-                <button
-                  onClick={handleSwapLanguages}
-                  className="bg-[#1a1b26] hover:bg-[#2a2d46] text-gray-200 px-8 py-2 rounded-lg transition duration-200 border border-[#414868] font-semibold"
-                >
-                  تبديل
-                </button>
+
+              {/* Output */}
+              <div className="group bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/[0.07]">
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-gray-200 mb-2">النص المترجم</h2>
+                  <p className="text-sm text-gray-400">النتيجة النهائية للترجمة</p>
+                </div>
+                <div className="h-48 bg-slate-900/50 text-gray-200 rounded-xl p-4 border border-white/10">
+                  <TextWithSelection
+                    text={translatedText}
+                    dir={toLang === 'ar' ? 'rtl' : 'ltr'}
+                    onWordSelect={handleWordSelect}
+                    style={{ fontFamily: 'Cairo, sans-serif' }}
+                  />
+                </div>
+                <div className="mt-6 flex justify-between items-center">
+                  <LanguageSelector
+                    value={toLang}
+                    onChange={setToLang}
+                    label="إلى"
+                    className="bg-slate-900/50 text-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-cyan-400/50 focus:outline-none border border-white/10 transition duration-300 min-w-[120px]"
+                  />
+                  <button
+                    onClick={handleSwapLanguages}
+                    className="bg-slate-900/50 hover:bg-white/10 text-gray-200 px-6 py-3 rounded-xl transition duration-300 border border-white/10 font-semibold flex items-center gap-2"
+                  >
+                    <ArrowRightLeft className="w-4 h-4" />
+                    تبديل
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {wordPairs.map((pair, index) => (
-            <div key={index} className="flex justify-between items-center py-2 hover:bg-[#1a1b26] transition-colors px-4 rounded">
-              <span className="text-purple-400">{pair.target}</span>
-              <span className="text-blue-400">{pair.source}</span>
-            </div>
-          ))}
-          {!wordPairs.length && null}
-
-          <div className="bg-[#24283b] rounded-xl p-6 shadow-lg border border-[#414868]">
-            <h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-6">إحصائيات الترجمة</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="bg-[#1a1b26] p-4 rounded-lg border border-[#414868]">
-                <p className="text-gray-400 text-sm mb-1">الكلمات المترجمة</p>
-                <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{wordPairs.length}</p>
+            {/* Translation Memory */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 mb-2">
+                  ذاكرة الترجمة
+                </h2>
+                <p className="text-gray-400">الترجمات السابقة والمشابهة</p>
               </div>
-              <div className="bg-[#1a1b26] p-4 rounded-lg border border-[#414868]">
-                <p className="text-gray-400 text-sm mb-1">وقت الترجمة</p>
-                <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">0ms</p>
-              </div>
-              <div className="bg-[#1a1b26] p-4 rounded-lg border border-[#414868]">
-                <p className="text-gray-400 text-sm mb-1">الدقة</p>
-                <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">0%</p>
-              </div>
-              <div className="bg-[#1a1b26] p-4 rounded-lg border border-[#414868]">
-                <p className="text-gray-400 text-sm mb-1">اللغات المدعومة</p>
-                <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">2</p>
+              <div className="grid gap-4">
+                {wordPairs.map((pair, index) => (
+                  <div 
+                    key={index} 
+                    className="flex justify-between items-center py-4 px-6 bg-slate-900/50 rounded-xl border border-white/10 hover:bg-white/5 transition-all duration-300"
+                  >
+                    <span className="text-cyan-400 font-medium">{pair.target}</span>
+                    <span className="text-indigo-400 font-medium">{pair.source}</span>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
 
-          <div className="bg-[#24283b] rounded-xl p-6 shadow-lg border border-[#414868]">
-            <CharacterPronouns
-              characters={characters}
-              onCharacterUpdate={handleCharacterUpdate}
-              onAddCharacter={handleAddCharacter}
-              onRemoveCharacter={handleRemoveCharacter}
-            />
-          </div>
+            {/* Statistics */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
+              <div className="mb-8">
+                <h2 className="text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 mb-2">
+                  إحصائيات الترجمة
+                </h2>
+                <p className="text-gray-400">معلومات حول أداء الترجمة</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="bg-slate-900/50 p-6 rounded-xl border border-white/10 hover:bg-white/5 transition-all duration-300">
+                  <p className="text-gray-400 text-sm mb-2">الكلمات المترجمة</p>
+                  <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">
+                    {wordPairs.length}
+                  </p>
+                </div>
+                <div className="bg-slate-900/50 p-6 rounded-xl border border-white/10 hover:bg-white/5 transition-all duration-300">
+                  <p className="text-gray-400 text-sm mb-2">وقت الترجمة</p>
+                  <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">
+                    0ms
+                  </p>
+                </div>
+                <div className="bg-slate-900/50 p-6 rounded-xl border border-white/10 hover:bg-white/5 transition-all duration-300">
+                  <p className="text-gray-400 text-sm mb-2">الدقة</p>
+                  <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">
+                    0%
+                  </p>
+                </div>
+                <div className="bg-slate-900/50 p-6 rounded-xl border border-white/10 hover:bg-white/5 transition-all duration-300">
+                  <p className="text-gray-400 text-sm mb-2">اللغات المدعومة</p>
+                  <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">
+                    2
+                  </p>
+                </div>
+              </div>
+            </div>
 
-          <div className="bg-[#24283b] rounded-xl p-6 shadow-lg border border-[#414868]">
-            <TranslationHistory
-              history={history}
-              onSelect={handleHistorySelect}
-            />
-          </div>
-        </main>
+            {/* Characters */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 mb-2">
+                  الشخصيات
+                </h2>
+                <p className="text-gray-400">إدارة أسماء الشخصيات وترجماتها</p>
+              </div>
+              <CharacterPronouns
+                characters={characters}
+                onCharacterUpdate={handleCharacterUpdate}
+                onAddCharacter={handleAddCharacter}
+                onRemoveCharacter={handleRemoveCharacter}
+              />
+            </div>
 
-        <footer className="mt-12 text-center text-gray-400">
-          <p className="text-sm"> 2024 مترجم AI - جميع الحقوق محفوظة</p>
-        </footer>
-      </div>
-      <ApiKeyModal
-        isOpen={isApiKeyModalOpen}
-        onClose={() => setIsApiKeyModalOpen(false)}
-        onSubmit={handleAISettingsSubmit}
-        settings={aiSettings}
-      />
-      <ApiKeyModal 
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        onSubmit={(settings) => {
-          setAISettings(settings);
-          setShowSettings(false);
-        }}
-        settings={aiSettings}
-      />
-      <AdminControl />
-      {error && (
-        <div className="fixed top-0 left-0 w-full bg-red-500 text-white p-4 text-center">
-          {error}
+            {/* Translation History */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 mb-2">
+                  سجل الترجمة
+                </h2>
+                <p className="text-gray-400">الترجمات السابقة</p>
+              </div>
+              <TranslationHistory
+                history={history}
+                onSelect={handleHistorySelect}
+              />
+            </div>
+
+            <div className="mt-8">
+              <TranslationMemory />
+            </div>
+          </main>
+
+          <footer className="mt-16 text-center text-gray-400 bg-white/5 backdrop-blur-xl p-6 rounded-2xl border border-white/10">
+            <p className="text-sm">2024 مترجم AI - جميع الحقوق محفوظة</p>
+          </footer>
         </div>
-      )}
-    </div>
+
+        <ApiKeyModal
+          isOpen={isApiKeyModalOpen}
+          onClose={() => setIsApiKeyModalOpen(false)}
+          onSubmit={handleAISettingsSubmit}
+          settings={aiSettings}
+        />
+        <ApiKeyModal 
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          onSubmit={(settings) => {
+            setAISettings(settings);
+            setShowSettings(false);
+          }}
+          settings={aiSettings}
+        />
+        <AdminControl />
+        {error && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 backdrop-blur-xl text-white px-6 py-3 rounded-xl shadow-lg">
+            {error}
+          </div>
+        )}
+      </div>
+    </QueryClientProvider>
   );
 }
 
