@@ -9,9 +9,40 @@ export interface WordPair {
   target: string;
 }
 
+export interface WritingStyle {
+  formality: 'formal' | 'informal' | 'mixed';
+  tone: 'serious' | 'humorous' | 'dramatic' | 'neutral';
+  complexity: 'simple' | 'moderate' | 'complex';
+  descriptiveness: 'minimal' | 'moderate' | 'detailed';
+  dialogueStyle: 'direct' | 'indirect' | 'mixed';
+}
+
+export interface CacheEntry {
+  originalText: string;
+  translatedText: string;
+  writingStyle: WritingStyle;
+  timestamp: number;
+  provider: string;
+  model: string;
+}
+
+export interface TranslationCache {
+  [key: string]: CacheEntry;
+}
+
+export interface AutoCorrection {
+  original: string;
+  corrected: string;
+  type: 'grammar' | 'spelling' | 'punctuation' | 'style';
+  confidence: number;
+}
+
 export interface TranslationResult {
   translatedText: string;
   wordPairs: WordPair[];
+  corrections?: AutoCorrection[];
+  writingStyle?: WritingStyle;
+  fromCache?: boolean;
 }
 
 export interface TranslationHistoryItem {
@@ -55,7 +86,8 @@ export interface Term {
 }
 
 export interface AISettings {
-  provider: AIProvider;
-  model: string;
-  apiKey: string;
+  selectedProvider: 'openai' | 'google' | 'anthropic';
+  openai: { apiKey: string; model: string };
+  google: { apiKey: string; model: string };
+  anthropic: { apiKey: string; model: string };
 }
