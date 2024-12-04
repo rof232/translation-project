@@ -6,180 +6,141 @@ import { parseWordPairs } from './utils/parsing';
 import { translationCache } from './translation-cache';
 import { textAnalysis } from './text-analysis';
 
+export interface AIServiceConfig {
+  provider: 'openai' | 'google' | 'anthropic' | 'custom';
+  apiKey: string;
+  model: string;
+  temperature?: number;
+  maxTokens?: number;
+  customEndpoint?: string;
+}
+
+export const DEFAULT_CONFIG: AIServiceConfig = {
+  provider: 'openai',
+  apiKey: '',
+  model: 'gpt-3.5-turbo',
+  temperature: 0.7,
+  maxTokens: 2000
+};
+
 export interface AISettings {
   selectedProvider: 'google' | 'openai' | 'anthropic';
   google: { apiKey: string; model: string };
   openai: { apiKey: string; model: string };
   anthropic: { apiKey: string; model: string };
+  custom: { apiKey: string; model: string; endpoint: string };
 }
 
 export function getStoredSettings(): AISettings {
-  const stored = localStorage.getItem('aiSettings');
-  return stored ? JSON.parse(stored) : {
-    selectedProvider: 'openai',
+  const stored = localStorage.getItem('ai_settings');
+  if (!stored) return {
+    provider: 'openai',
     openai: { apiKey: '', model: 'gpt-3.5-turbo' },
     google: { apiKey: '', model: 'gemini-pro' },
-    anthropic: { apiKey: '', model: 'claude-2' }
+    anthropic: { apiKey: '', model: 'claude-3-sonnet' },
+    custom: { apiKey: '', model: '', endpoint: '' }
   };
+  
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return DEFAULT_CONFIG;
+  }
 }
 
 export function storeSettings(settings: AISettings) {
-  localStorage.setItem('aiSettings', JSON.stringify(settings));
+  localStorage.setItem('ai_settings', JSON.stringify(settings));
 }
 
 export class AIService {
-  private settings: AISettings;
-  private geminiClient?: GoogleGenerativeAI;
-  private openaiClient?: OpenAI;
-  private anthropicClient?: Anthropic;
+  private config: AIServiceConfig;
+  private openai: any;
+  private googleAI: any;
+  private anthropic: any;
 
-  constructor(settings: AISettings) {
-    this.settings = settings;
-    this.initializeClient();
-  }
-
-  private initializeClient() {
-    try {
-      const provider = this.settings.selectedProvider;
-      switch (provider) {
-        case 'google':
-          if (this.settings.google.apiKey) {
-            this.geminiClient = new GoogleGenerativeAI(this.settings.google.apiKey);
-          }
-          break;
-        case 'openai':
-          if (this.settings.openai.apiKey) {
-            this.openaiClient = new OpenAI({ apiKey: this.settings.openai.apiKey });
-          }
-          break;
-        case 'anthropic':
-          if (this.settings.anthropic.apiKey) {
-            this.anthropicClient = new Anthropic({ apiKey: this.settings.anthropic.apiKey });
-          }
-          break;
-      }
-    } catch (error) {
-      console.error('Error initializing AI client:', error);
-      throw new Error('Failed to initialize AI service');
-    }
-  }
-
-  async translate(text: string, from: string = 'en', to: string = 'ar'): Promise<TranslationResult> {
-    try {
-      // التحقق من التخزين المؤقت أولاً
-      const cached = translationCache.get(text, from, to);
-      if (cached) {
-        return {
-          translatedText: cached.translatedText,
-          wordPairs: [], // يمكن تخزين أزواج الكلمات في الكاش أيضاً
-          writingStyle: cached.writingStyle,
-          fromCache: true
-        };
-      }
-
-      // تحليل أسلوب النص الأصلي
-      const sourceStyle = await textAnalysis.analyzeWritingStyle(text);
-
-      // الحصول على الترجمة من مزود الذكاء الاصطناعي
-      const translatedText = await this.getTranslationFromProvider(text, from, to, sourceStyle);
-
-      // تصحيح النص المترجم
-      const corrections = await textAnalysis.autoCorrect(translatedText, to);
-      
-      // تطبيق التصحيحات
-      let finalText = translatedText;
-      corrections.forEach(correction => {
-        if (correction.confidence > 0.8) {
-          finalText = finalText.replace(correction.original, correction.corrected);
-        }
-      });
-
-      // تحليل أسلوب النص المترجم للتأكد من تطابقه مع النص الأصلي
-      const targetStyle = await textAnalysis.analyzeWritingStyle(finalText);
-
-      const result: TranslationResult = {
-        translatedText: finalText,
-        wordPairs: [], // يمكن إضافة منطق لاستخراج أزواج الكلمات
-        corrections,
-        writingStyle: targetStyle
-      };
-
-      // تخزين النتيجة في الكاش
-      translationCache.set(text, from, to, {
-        originalText: text,
-        translatedText: finalText,
-        writingStyle: targetStyle,
-        provider: this.settings.selectedProvider,
-        model: this.settings.selectedProvider === 'openai' ? this.settings.openai.model : this.settings.selectedProvider === 'google' ? this.settings.google.model : this.settings.anthropic.model
-      });
-
-      return result;
-    } catch (error) {
-      console.error('Translation error:', error);
-      throw error;
-    }
-  }
-
-  private async getTranslationFromProvider(
-    text: string,
-    from: string,
-    to: string,
-    sourceStyle: WritingStyle
-  ): Promise<string> {
-    const prompt = this.buildStyleAwarePrompt(text, from, to, sourceStyle);
+  constructor(config: AIServiceConfig) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
     
-    switch (this.settings.selectedProvider) {
-      case 'openai':
-        return this.translateWithOpenAI(prompt);
-      case 'google':
-        return this.translateWithGoogle(prompt);
-      case 'anthropic':
-        return this.translateWithAnthropic(prompt);
-      default:
-        throw new Error('Unsupported AI provider');
+    if (config.provider === 'openai' && config.apiKey) {
+      const { OpenAI } = require('openai');
+      this.openai = new OpenAI({ apiKey: config.apiKey });
+    }
+    
+    if (config.provider === 'google' && config.apiKey) {
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
+      this.googleAI = new GoogleGenerativeAI(config.apiKey);
+    }
+    
+    if (config.provider === 'anthropic' && config.apiKey) {
+      const Anthropic = require('@anthropic-ai/sdk');
+      this.anthropic = new Anthropic({ apiKey: config.apiKey });
     }
   }
 
-  private buildStyleAwarePrompt(
-    text: string,
-    from: string,
-    to: string,
-    style: WritingStyle
-  ): string {
-    return `Translate the following text from ${from} to ${to}, maintaining this writing style:
-- Formality: ${style.formality}
-- Tone: ${style.tone}
-- Complexity: ${style.complexity}
-- Descriptiveness: ${style.descriptiveness}
-- Dialogue Style: ${style.dialogueStyle}
-
-Text to translate:
-${text}`;
+  async translate(text: string, from: string, to: string): Promise<TranslationResult> {
+    switch (this.config.provider) {
+      case 'openai':
+        return this.translateWithOpenAI(text, from, to);
+      case 'google':
+        return this.translateWithGoogle(text, from, to);
+      case 'anthropic':
+        return this.translateWithAnthropic(text, from, to);
+      default:
+        throw new Error('غير مدعوم: ' + this.config.provider);
+    }
   }
 
-  private async translateWithOpenAI(prompt: string): Promise<string> {
-    if (!this.openaiClient) throw new Error('OpenAI client not initialized');
-    const completion = await this.openaiClient.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: this.settings.openai.model,
+  private async translateWithOpenAI(text: string, from: string, to: string): Promise<TranslationResult> {
+    const completion = await this.openai.chat.completions.create({
+      model: this.config.model,
+      messages: [
+        {
+          role: 'system',
+          content: `أنت مترجم محترف. قم بترجمة النص من ${from} إلى ${to} مع الحفاظ على المعنى والأسلوب.`
+        },
+        { role: 'user', content: text }
+      ],
+      temperature: this.config.temperature,
+      max_tokens: this.config.maxTokens
     });
-    return completion.choices[0]?.message?.content || '';
+
+    return {
+      translatedText: completion.choices[0].message.content,
+      wordPairs: [],
+      fromCache: false
+    };
   }
 
-  private async translateWithGoogle(prompt: string): Promise<string> {
-    if (!this.geminiClient) throw new Error('Google AI client not initialized');
-    const geminiModel = this.geminiClient.getGenerativeModel({ model: this.settings.google.model });
-    const geminiResult = await geminiModel.generateContent(prompt);
-    return geminiResult.response.text();
+  private async translateWithGoogle(text: string, from: string, to: string): Promise<TranslationResult> {
+    const model = this.googleAI.getGenerativeModel({ model: this.config.model });
+    const prompt = `ترجم النص التالي من ${from} إلى ${to}:\n\n${text}`;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    
+    return {
+      translatedText: response.text(),
+      wordPairs: [],
+      fromCache: false
+    };
   }
 
-  private async translateWithAnthropic(prompt: string): Promise<string> {
-    if (!this.anthropicClient) throw new Error('Anthropic client not initialized');
-    const message = await this.anthropicClient.messages.create({
-      model: this.settings.anthropic.model,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 1024,
+  private async translateWithAnthropic(text: string, from: string, to: string): Promise<TranslationResult> {
+    const message = await this.anthropic.messages.create({
+      model: this.config.model,
+      max_tokens: this.config.maxTokens,
+      messages: [
+        {
+          role: 'user',
+          content: `ترجم النص التالي من ${from} إلى ${to}:\n\n${text}`
+        }
+      ]
     });
-    return message.content[0].text;
+
+    return {
+      translatedText: message.content[0].text,
+      wordPairs: [],
+      fromCache: false
+    };
   }
 }
