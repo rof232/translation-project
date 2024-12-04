@@ -1,18 +1,20 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import { LlamaModel, LlamaContext, LlamaChatSession } from 'node-llama-cpp';
 import type { AISettings, TranslationResult, WordPair, WritingStyle } from './types';
 import { parseWordPairs } from './utils/parsing';
 import { translationCache } from './translation-cache';
 import { textAnalysis } from './text-analysis';
 
 export interface AIServiceConfig {
-  provider: 'openai' | 'google' | 'anthropic' | 'custom';
+  provider: 'openai' | 'google' | 'anthropic' | 'llama' | 'custom';
   apiKey: string;
   model: string;
   temperature?: number;
   maxTokens?: number;
   customEndpoint?: string;
+  modelPath?: string; // Path to LLaMA model file
 }
 
 export const DEFAULT_CONFIG: AIServiceConfig = {
@@ -24,20 +26,22 @@ export const DEFAULT_CONFIG: AIServiceConfig = {
 };
 
 export interface AISettings {
-  selectedProvider: 'google' | 'openai' | 'anthropic';
+  selectedProvider: 'google' | 'openai' | 'anthropic' | 'llama';
   google: { apiKey: string; model: string };
   openai: { apiKey: string; model: string };
   anthropic: { apiKey: string; model: string };
+  llama: { modelPath: string; model: string };
   custom: { apiKey: string; model: string; endpoint: string };
 }
 
 export function getStoredSettings(): AISettings {
   const stored = localStorage.getItem('ai_settings');
   if (!stored) return {
-    provider: 'openai',
+    selectedProvider: 'openai',
     openai: { apiKey: '', model: 'gpt-3.5-turbo' },
     google: { apiKey: '', model: 'gemini-pro' },
     anthropic: { apiKey: '', model: 'claude-3-sonnet' },
+    llama: { modelPath: '', model: 'llama-2-7b-chat' },
     custom: { apiKey: '', model: '', endpoint: '' }
   };
   
@@ -57,6 +61,8 @@ export class AIService {
   private openai: any;
   private googleAI: any;
   private anthropic: any;
+  private llamaModel: LlamaModel | null = null;
+  private llamaContext: LlamaContext | null = null;
 
   constructor(config: AIServiceConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -75,19 +81,52 @@ export class AIService {
       const Anthropic = require('@anthropic-ai/sdk');
       this.anthropic = new Anthropic({ apiKey: config.apiKey });
     }
+
+    if (config.provider === 'llama' && config.modelPath) {
+      this.initializeLlama(config.modelPath);
+    }
+  }
+
+  private async initializeLlama(modelPath: string) {
+    try {
+      this.llamaModel = new LlamaModel({
+        modelPath: modelPath,
+        contextSize: 2048,
+        batchSize: 512,
+      });
+      this.llamaContext = new LlamaContext({ model: this.llamaModel });
+    } catch (error) {
+      console.error('Failed to initialize LLaMA model:', error);
+      throw new Error('Failed to initialize LLaMA model');
+    }
   }
 
   async translate(text: string, from: string, to: string): Promise<TranslationResult> {
+    const cacheKey = `${text}-${from}-${to}`;
+    const cached = translationCache.get(cacheKey);
+    if (cached) return cached;
+
+    let result: TranslationResult;
+
     switch (this.config.provider) {
       case 'openai':
-        return this.translateWithOpenAI(text, from, to);
+        result = await this.translateWithOpenAI(text, from, to);
+        break;
       case 'google':
-        return this.translateWithGoogle(text, from, to);
+        result = await this.translateWithGoogle(text, from, to);
+        break;
       case 'anthropic':
-        return this.translateWithAnthropic(text, from, to);
+        result = await this.translateWithAnthropic(text, from, to);
+        break;
+      case 'llama':
+        result = await this.translateWithLlama(text, from, to);
+        break;
       default:
-        throw new Error('غير مدعوم: ' + this.config.provider);
+        throw new Error('Unsupported AI provider');
     }
+
+    translationCache.set(cacheKey, result);
+    return result;
   }
 
   private async translateWithOpenAI(text: string, from: string, to: string): Promise<TranslationResult> {
@@ -96,7 +135,7 @@ export class AIService {
       messages: [
         {
           role: 'system',
-          content: `أنت مترجم محترف. قم بترجمة النص من ${from} إلى ${to} مع الحفاظ على المعنى والأسلوب.`
+          content: `You are a professional translator. Translate the following text from ${from} to ${to}. Maintain the original meaning, tone, and style.`
         },
         { role: 'user', content: text }
       ],
@@ -113,7 +152,7 @@ export class AIService {
 
   private async translateWithGoogle(text: string, from: string, to: string): Promise<TranslationResult> {
     const model = this.googleAI.getGenerativeModel({ model: this.config.model });
-    const prompt = `ترجم النص التالي من ${from} إلى ${to}:\n\n${text}`;
+    const prompt = `Translate the following text from ${from} to ${to}:\n\n${text}`;
     
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -132,7 +171,7 @@ export class AIService {
       messages: [
         {
           role: 'user',
-          content: `ترجم النص التالي من ${from} إلى ${to}:\n\n${text}`
+          content: `Translate the following text from ${from} to ${to}:\n\n${text}`
         }
       ]
     });
@@ -142,5 +181,34 @@ export class AIService {
       wordPairs: [],
       fromCache: false
     };
+  }
+
+  private async translateWithLlama(text: string, from: string, to: string): Promise<TranslationResult> {
+    if (!this.llamaContext) {
+      throw new Error('LLaMA model not initialized');
+    }
+
+    try {
+      const session = new LlamaChatSession({
+        context: this.llamaContext,
+        systemPrompt: `You are a professional translator. Translate the following text from ${from} to ${to}. Maintain the original meaning, tone, and style.`
+      });
+
+      const response = await session.prompt(text);
+      const analysis = await textAnalysis(text, response);
+      
+      return {
+        translatedText: response,
+        confidence: 0.85,
+        alternatives: [],
+        sourceLanguage: from,
+        targetLanguage: to,
+        wordPairs: parseWordPairs(text, response),
+        analysis
+      };
+    } catch (error) {
+      console.error('LLaMA translation error:', error);
+      throw new Error('Failed to translate using LLaMA');
+    }
   }
 }

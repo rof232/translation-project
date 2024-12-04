@@ -34,6 +34,18 @@ export const AI_PROVIDERS: Record<string, AIProviderConfig> = {
     ],
     customModelSupport: true
   },
+  llama: {
+    name: 'LLaMA',
+    models: [
+      { id: 'llama-2-7b', name: 'LLaMA-2 7B', provider: 'llama' },
+      { id: 'llama-2-13b', name: 'LLaMA-2 13B', provider: 'llama' },
+      { id: 'llama-2-70b', name: 'LLaMA-2 70B', provider: 'llama' },
+      { id: 'llama-2-7b-chat', name: 'LLaMA-2 7B Chat', provider: 'llama' },
+      { id: 'llama-2-13b-chat', name: 'LLaMA-2 13B Chat', provider: 'llama' },
+      { id: 'llama-2-70b-chat', name: 'LLaMA-2 70B Chat', provider: 'llama' }
+    ],
+    customModelSupport: true
+  },
   custom: {
     name: 'نموذج مخصص',
     models: [],

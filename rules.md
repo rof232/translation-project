@@ -288,25 +288,80 @@ translation-project/
 
 ## تكوين نماذج الذكاء الاصطناعي 🤖
 
-### OpenAI
+### نماذج مدعومة
+1. **OpenAI GPT**
+   - GPT-4 Turbo
+   - GPT-4 Vision
+   - GPT-3.5 Turbo
+   - GPT-3.5 Turbo 16K
+
+2. **Google AI**
+   - Gemini Pro
+   - Gemini Pro Vision
+   - Text Bison
+   - Chat Bison
+   - Code Bison
+
+3. **Anthropic Claude**
+   - Claude 3 Opus
+   - Claude 3 Sonnet
+   - Claude 3 Haiku
+   - Claude 2.1
+   - Claude Instant
+
+4. **LLaMA 2**
+   - LLaMA-2 7B
+   - LLaMA-2 13B
+   - LLaMA-2 70B
+   - LLaMA-2 7B Chat
+   - LLaMA-2 13B Chat
+   - LLaMA-2 70B Chat
+
+### إعداد LLaMA 2
+1. **تنزيل النموذج**
+   ```bash
+   # تنزيل نموذج LLaMA-2
+   git clone https://github.com/ggerganov/llama.cpp.git
+   cd llama.cpp
+   
+   # تنزيل وتحويل النموذج (يتطلب حساب Meta)
+   python3 convert.py [مسار-ملف-النموذج-الأصلي].pth
+   ```
+
+2. **تكوين المسار**
+   ```typescript
+   // في ملف .env
+   LLAMA_MODEL_PATH=/path/to/model/llama-2-7b-chat.gguf
+   ```
+
+3. **متطلبات إضافية**
+   - ذاكرة RAM: 8GB+ (7B)، 16GB+ (13B)، 32GB+ (70B)
+   - مساحة تخزين: 5GB+ (7B)، 10GB+ (13B)، 40GB+ (70B)
+   - NVIDIA CUDA (اختياري للتسريع)
+
+4. **إعدادات متقدمة**
+   ```typescript
+   const llamaConfig = {
+     contextSize: 2048,    // حجم النافذة السياقية
+     batchSize: 512,       // حجم الدفعة
+     threads: 4,           // عدد خيوط المعالجة
+     gpuLayers: 32        // عدد طبقات GPU (مع CUDA)
+   };
+   ```
+
+### تكوين مفاتيح API
 ```env
 OPENAI_API_KEY=sk-...
 OPENAI_ORG_ID=org-...
 OPENAI_MODEL=gpt-4-turbo-preview
 OPENAI_TEMPERATURE=0.7
 OPENAI_MAX_TOKENS=2000
-```
 
-### Google AI (Gemini)
-```env
 GOOGLE_API_KEY=AIza...
 GEMINI_MODEL=gemini-pro
 GEMINI_TEMPERATURE=0.7
 GEMINI_MAX_OUTPUT_TOKENS=2048
-```
 
-### LLaMA 2
-```env
 LLAMA_MODEL_PATH=models/llama-2-7b-chat
 LLAMA_QUANTIZATION=q4_K_M
 LLAMA_CONTEXT_SIZE=4096
@@ -674,4 +729,3 @@ const cachedResult = cache.get(`${text}-${from}-${to}`);
 if (cachedResult) {
   return cachedResult;
 }
-```
