@@ -318,34 +318,35 @@ translation-project/
    - LLaMA-2 70B Chat
 
 ### إعداد LLaMA 2
-1. **تنزيل النموذج**
-   ```bash
-   # تنزيل نموذج LLaMA-2
-   git clone https://github.com/ggerganov/llama.cpp.git
-   cd llama.cpp
-   
-   # تنزيل وتحويل النموذج (يتطلب حساب Meta)
-   python3 convert.py [مسار-ملف-النموذج-الأصلي].pth
+1. **خيارات الوصول**
+   - استخدام خدمة API مستضافة
+   - نشر نموذج خاص على Hugging Face
+   - استخدام خدمة استضافة مثل Replicate
+
+2. **تكوين الوصول**
+   ```env
+   # في ملف .env
+   LLAMA_API_ENDPOINT=https://your-llama-endpoint/v1/generate
+   LLAMA_API_KEY=your_api_key
+   LLAMA_MODEL=llama-2-7b-chat
    ```
 
-2. **تكوين المسار**
-   ```typescript
-   // في ملف .env
-   LLAMA_MODEL_PATH=/path/to/model/llama-2-7b-chat.gguf
-   ```
-
-3. **متطلبات إضافية**
-   - ذاكرة RAM: 8GB+ (7B)، 16GB+ (13B)، 32GB+ (70B)
-   - مساحة تخزين: 5GB+ (7B)، 10GB+ (13B)، 40GB+ (70B)
-   - NVIDIA CUDA (اختياري للتسريع)
+3. **متطلبات النظام**
+   - للاستخدام عبر API:
+     * اتصال إنترنت مستقر
+     * مفتاح API صالح
+   - للنشر الذاتي:
+     * خادم مع GPU (مستحسن)
+     * ذاكرة RAM كافية (8GB+)
+     * مساحة تخزين للنموذج
 
 4. **إعدادات متقدمة**
    ```typescript
    const llamaConfig = {
-     contextSize: 2048,    // حجم النافذة السياقية
-     batchSize: 512,       // حجم الدفعة
-     threads: 4,           // عدد خيوط المعالجة
-     gpuLayers: 32        // عدد طبقات GPU (مع CUDA)
+     temperature: 0.7,    // درجة الإبداعية
+     maxTokens: 2000,     // الحد الأقصى للنص المولد
+     topP: 0.95,         // تنوع النص
+     apiVersion: 'v1'     // إصدار API
    };
    ```
 
@@ -362,10 +363,9 @@ GEMINI_MODEL=gemini-pro
 GEMINI_TEMPERATURE=0.7
 GEMINI_MAX_OUTPUT_TOKENS=2048
 
-LLAMA_MODEL_PATH=models/llama-2-7b-chat
-LLAMA_QUANTIZATION=q4_K_M
-LLAMA_CONTEXT_SIZE=4096
-LLAMA_THREADS=6
+LLAMA_API_ENDPOINT=https://your-llama-endpoint/v1/generate
+LLAMA_API_KEY=your_api_key
+LLAMA_MODEL=llama-2-7b-chat
 ```
 
 ### إعدادات الترجمة

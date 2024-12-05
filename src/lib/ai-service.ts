@@ -1,7 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { LlamaModel, LlamaContext, LlamaChatSession } from 'node-llama-cpp';
 import type { AISettings, TranslationResult, WordPair, WritingStyle } from './types';
 import { parseWordPairs } from './utils/parsing';
 import { translationCache } from './translation-cache';
@@ -14,7 +13,6 @@ export interface AIServiceConfig {
   temperature?: number;
   maxTokens?: number;
   customEndpoint?: string;
-  modelPath?: string; // Path to LLaMA model file
 }
 
 export const DEFAULT_CONFIG: AIServiceConfig = {
@@ -61,8 +59,6 @@ export class AIService {
   private openai: any;
   private googleAI: any;
   private anthropic: any;
-  private llamaModel: LlamaModel | null = null;
-  private llamaContext: LlamaContext | null = null;
 
   constructor(config: AIServiceConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -80,24 +76,6 @@ export class AIService {
     if (config.provider === 'anthropic' && config.apiKey) {
       const Anthropic = require('@anthropic-ai/sdk');
       this.anthropic = new Anthropic({ apiKey: config.apiKey });
-    }
-
-    if (config.provider === 'llama' && config.modelPath) {
-      this.initializeLlama(config.modelPath);
-    }
-  }
-
-  private async initializeLlama(modelPath: string) {
-    try {
-      this.llamaModel = new LlamaModel({
-        modelPath: modelPath,
-        contextSize: 2048,
-        batchSize: 512,
-      });
-      this.llamaContext = new LlamaContext({ model: this.llamaModel });
-    } catch (error) {
-      console.error('Failed to initialize LLaMA model:', error);
-      throw new Error('Failed to initialize LLaMA model');
     }
   }
 
@@ -184,26 +162,40 @@ export class AIService {
   }
 
   private async translateWithLlama(text: string, from: string, to: string): Promise<TranslationResult> {
-    if (!this.llamaContext) {
-      throw new Error('LLaMA model not initialized');
+    if (!this.config.customEndpoint) {
+      throw new Error('LLaMA endpoint not configured');
     }
 
     try {
-      const session = new LlamaChatSession({
-        context: this.llamaContext,
-        systemPrompt: `You are a professional translator. Translate the following text from ${from} to ${to}. Maintain the original meaning, tone, and style.`
+      const response = await fetch(this.config.customEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.apiKey}`
+        },
+        body: JSON.stringify({
+          prompt: `Translate the following text from ${from} to ${to}:\n\n${text}`,
+          model: this.config.model,
+          temperature: this.config.temperature || 0.7,
+          max_tokens: this.config.maxTokens || 2000
+        })
       });
 
-      const response = await session.prompt(text);
-      const analysis = await textAnalysis(text, response);
+      if (!response.ok) {
+        throw new Error(`LLaMA API error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const translatedText = result.generated_text || result.response || '';
+      const analysis = await textAnalysis(text, translatedText);
       
       return {
-        translatedText: response,
+        translatedText,
         confidence: 0.85,
         alternatives: [],
         sourceLanguage: from,
         targetLanguage: to,
-        wordPairs: parseWordPairs(text, response),
+        wordPairs: parseWordPairs(text, translatedText),
         analysis
       };
     } catch (error) {
