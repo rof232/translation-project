@@ -4,8 +4,8 @@ import { X } from 'lucide-react';
 interface ApiKeyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (settings: { apiKey: string; model: string }) => void;
-  settings: { apiKey: string; model: string };
+  onSubmit: (settings: any) => void;
+  settings: any;
 }
 
 const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
@@ -14,14 +14,55 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   onSubmit,
   settings,
 }) => {
-  const [apiKey, setApiKey] = useState(settings.apiKey || '');
-  const [model, setModel] = useState(settings.model || 'gpt-3.5-turbo');
+  const [provider, setProvider] = useState(settings.provider || 'openai');
+  const [apiKey, setApiKey] = useState(settings[provider]?.apiKey || '');
+  const [model, setModel] = useState(settings[provider]?.model || '');
+  const [endpoint, setEndpoint] = useState(settings[provider]?.endpoint || '');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ apiKey, model });
+    const newSettings = {
+      ...settings,
+      provider,
+      [provider]: {
+        apiKey,
+        model,
+        endpoint
+      }
+    };
+    onSubmit(newSettings);
+  };
+
+  const getModelOptions = () => {
+    switch (provider) {
+      case 'openai':
+        return [
+          { value: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo' },
+          { value: 'gpt-4', label: 'GPT-4' },
+          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+        ];
+      case 'google':
+        return [
+          { value: 'gemini-pro', label: 'Gemini Pro' },
+          { value: 'gemini-pro-vision', label: 'Gemini Pro Vision' }
+        ];
+      case 'anthropic':
+        return [
+          { value: 'claude-3-opus', label: 'Claude 3 Opus' },
+          { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
+          { value: 'claude-3-haiku', label: 'Claude 3 Haiku' }
+        ];
+      case 'llama':
+        return [
+          { value: 'llama-2-70b-chat', label: 'LLaMA-2 70B Chat' },
+          { value: 'llama-2-13b-chat', label: 'LLaMA-2 13B Chat' },
+          { value: 'llama-2-7b-chat', label: 'LLaMA-2 7B Chat' }
+        ];
+      default:
+        return [];
+    }
   };
 
   return (
@@ -41,14 +82,22 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-gray-400 mb-2">API Key</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+            <label className="block text-gray-400 mb-2">مزود الخدمة</label>
+            <select
+              value={provider}
+              onChange={(e) => {
+                setProvider(e.target.value);
+                setApiKey(settings[e.target.value]?.apiKey || '');
+                setModel(settings[e.target.value]?.model || getModelOptions()[0]?.value || '');
+                setEndpoint(settings[e.target.value]?.endpoint || '');
+              }}
               className="w-full bg-[#1a1b26] text-gray-200 px-4 py-2 rounded-lg border border-[#414868] focus:ring-2 focus:ring-purple-400 focus:outline-none"
-              placeholder="Enter your API key"
-            />
+            >
+              <option value="openai">OpenAI</option>
+              <option value="google">Google AI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="llama">LLaMA</option>
+            </select>
           </div>
 
           <div>
@@ -58,11 +107,37 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               onChange={(e) => setModel(e.target.value)}
               className="w-full bg-[#1a1b26] text-gray-200 px-4 py-2 rounded-lg border border-[#414868] focus:ring-2 focus:ring-purple-400 focus:outline-none"
             >
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-              <option value="gpt-4">GPT-4</option>
-              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              {getModelOptions().map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
+
+          <div>
+            <label className="block text-gray-400 mb-2">مفتاح API</label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              className="w-full bg-[#1a1b26] text-gray-200 px-4 py-2 rounded-lg border border-[#414868] focus:ring-2 focus:ring-purple-400 focus:outline-none"
+              placeholder="أدخل مفتاح API"
+            />
+          </div>
+
+          {provider === 'llama' && (
+            <div>
+              <label className="block text-gray-400 mb-2">عنوان API</label>
+              <input
+                type="text"
+                value={endpoint}
+                onChange={(e) => setEndpoint(e.target.value)}
+                className="w-full bg-[#1a1b26] text-gray-200 px-4 py-2 rounded-lg border border-[#414868] focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                placeholder="https://your-llama-endpoint/v1/generate"
+              />
+            </div>
+          )}
 
           <div className="flex justify-end gap-4">
             <button
