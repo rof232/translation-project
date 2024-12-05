@@ -729,3 +729,70 @@ const cachedResult = cache.get(`${text}-${from}-${to}`);
 if (cachedResult) {
   return cachedResult;
 }
+
+```
+
+### إعدادات API
+
+#### OpenAI
+```env
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4-turbo-preview
+OPENAI_TEMPERATURE=0.7
+OPENAI_MAX_TOKENS=2000
+```
+
+#### Google AI (Gemini)
+```env
+GOOGLE_API_KEY=AIza...
+GEMINI_MODEL=gemini-pro
+GEMINI_TEMPERATURE=0.7
+GEMINI_MAX_OUTPUT_TOKENS=2048
+```
+
+#### Anthropic Claude
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+CLAUDE_MODEL=claude-3-opus
+CLAUDE_TEMPERATURE=0.7
+CLAUDE_MAX_TOKENS=2000
+```
+
+#### LLaMA 2
+```env
+# إعدادات الوصول الأساسية
+LLAMA_API_ENDPOINT=https://your-llama-endpoint/v1/generate
+LLAMA_API_KEY=your-api-key
+
+# اختيار النموذج
+LLAMA_MODEL=llama-2-70b-chat    # النموذج الأكبر والأكثر دقة
+# أو
+LLAMA_MODEL=llama-2-13b-chat    # توازن بين الحجم والأداء
+# أو
+LLAMA_MODEL=llama-2-7b-chat     # الأسرع والأقل استهلاكاً للموارد
+
+# إعدادات توليد النص
+LLAMA_TEMPERATURE=0.7           # 0.1-1.0 (أقل = أكثر دقة، أعلى = أكثر إبداعاً)
+LLAMA_MAX_TOKENS=2000          # الحد الأقصى لطول النص المولد
+LLAMA_TOP_P=0.95               # 0.1-1.0 (للتحكم في تنوع النص)
+LLAMA_TOP_K=40                 # 1-100 (للتحكم في اختيار الكلمات)
+LLAMA_REPEAT_PENALTY=1.1       # 1.0-2.0 (لمنع تكرار النص)
+
+# إعدادات متقدمة
+LLAMA_CONTEXT_SIZE=4096        # حجم النافذة السياقية
+LLAMA_BATCH_SIZE=512           # حجم الدفعة للمعالجة
+LLAMA_THREADS=4                # عدد خيوط المعالجة
+```
+
+### إعدادات الترجمة
+```typescript
+const translationConfig = {
+  defaultProvider: 'openai',
+  fallbackProvider: 'google',
+  cacheEnabled: true,
+  cacheDuration: 7 * 24 * 60 * 60, // 7 days
+  maxRetries: 3,
+  timeout: 30000, // 30 seconds
+  batchSize: 1000, // words
+  concurrentRequests: 3
+};
